@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Limbo – 8 Key Switch (Tribute)</title>
+  <style>
+    :root{
+      --bg:#0b0f17;--panel:#0e1422;--accent:#8b5cf6;--accent2:#22d3ee;--good:#22c55e;--bad:#ef4444;--text:#e5e7eb;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(60% 80% at 50% 0%,#111a2a 0%,var(--bg) 60%,#060910 100%);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Ubuntu,Arial,sans-serif;color:var(--text)}
+    .wrap{max-width:980px;margin:24px auto;padding:16px}
+    h1{margin:.2rem 0 1rem;font-weight:800;letter-spacing:.3px}
+    .card{background:linear-gradient(180deg,#10192b,#0b1220);border:1px solid #1f2a44;border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04);padding:14px}
+    .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .controls label{font-size:.9rem;opacity:.9}
+    .controls input[type="number"],.controls input[type="text"]{background:#0d1426;border:1px solid #26355e;color:var(--text);padding:8px 10px;border-radius:12px;width:110px}
+    .controls input[type="file"]{accent-color:var(--accent)}
+    .btn{appearance:none;border:0;border-radius:14px;padding:10px 14px;font-weight:700;letter-spacing:.3px;cursor:pointer;transition:transform .06s ease,box-shadow .2s ease;box-shadow:0 6px 16px rgba(0,0,0,.3)}
+    .btn:active{transform:translateY(1px)}
+    .btn-primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff}
+    .btn-ghost{background:#121a2c;border:1px solid #27345a;color:#cbd5e1}
+    .grid{position:relative;height:520px;margin-top:16px;border-radius:16px;background:radial-gradient(60% 120% at 50% 10%,rgba(35,50,90,.45),rgba(10,14,25,.6)),repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 3px 8px);overflow:hidden}
+    .status{display:flex;gap:12px;align-items:center;margin-top:10px;font-size:.95rem}
+    .dot{width:10px;height:10px;border-radius:999px;display:inline-block;background:#64748b;box-shadow:0 0 16px currentColor}
+    .dot.live{background:var(--accent2)}
+    .dot.idle{background:#64748b}
+
+    /* key styling */
+    .key{position:absolute;width:80px;height:80px;display:grid;place-items:center;border-radius:18px;border:1px solid #334169;background:linear-gradient(180deg,#121a26,#0b1120);box-shadow:0 12px 24px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.04);transition:transform .38s cubic-bezier(.2,.8,.2,1),left .38s cubic-bezier(.2,.8,.2,1),top .38s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease;cursor:pointer}
+    .key:hover{box-shadow:0 16px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06)}
+    .key svg{width:54px;height:54px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}
+    .key .num{position:absolute;bottom:6px;right:10px;font-size:.8rem;opacity:.75}
+    .key.correct{outline:2px solid var(--good);box-shadow:0 0 28px rgba(34,197,94,.45)}
+    .key.wrong{animation:shake .35s linear}
+    @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+
+    /* reveal pulse to show the correct key at the start */
+    .key.reveal{outline:2px solid var(--accent2);box-shadow:0 0 26px rgba(34,211,238,.55),0 0 10px rgba(34,211,238,.35) inset;animation:revealPulse .8s ease-in-out infinite alternate;transform:scale(1.06)}
+    @keyframes revealPulse{from{transform:scale(1.02)}to{transform:scale(1.09)}}
+
+    .flash{position:absolute;inset:0;background:radial-gradient(100% 100% at 50% 50%,rgba(239,68,68,.38),transparent 60%);pointer-events:none;opacity:0;transition:opacity .25s ease}
+    .flash.show{opacity:1}
+
+    .banner{position:absolute;left:50%;top:16px;transform:translateX(-50%);background:rgba(16,24,40,.85);backdrop-filter:blur(6px);padding:8px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.08);font-weight:700;letter-spacing:.3px}
+    .banner.good{border-color:rgba(34,197,94,.5)}
+
+    .footer{margin-top:12px;opacity:.75;font-size:.85rem}
+    .kbd{border:1px solid #2a3a64;border-bottom-width:3px;border-radius:8px;padding:0 6px;background:#0e162b}
+
+    /* debug */
+    .errbar{margin-top:10px;padding:8px 12px;border-radius:10px;border:1px solid #3a2240;background:rgba(120,0,60,.16);display:none}
+    .errbar.show{display:block}
+    .tests{margin-top:12px}
+    .test-pass{color:#22c55e}
+    .test-fail{color:#ef4444}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Limbo – 8 Key Switch <small style="font-weight:600;opacity:.7">(fan-made HTML mini)</small></h1>
+
+    <div class="card">
+      <div class="controls">
+        <button id="start" class="btn btn-primary">Start (reveal ➜ shuffle + music)</button>
+        <button id="stop" class="btn btn-ghost">Stop</button>
+        <label>Shuffle speed (ms)
+          <input id="speed" type="number" min="120" step="20" value="500" />
+        </label>
+        <label>Duration (s)
+          <input id="duration" type="number" min="1" step="1" value="8" />
+        </label>
+        <label>Reveal (ms)
+          <input id="reveal" type="number" min="0" step="50" value="1200" />
+        </label>
+        <label>Audio file
+          <input id="file" type="file" accept="audio/*" />
+        </label>
+        <label> Cue start (s)
+          <input id="cue" type="number" min="0" step="0.1" value="0" />
+        </label>
+        <audio id="song" preload="auto" hidden></audio>
+      </div>
+
+      <div id="status" class="status"><span class="dot idle" id="live" aria-hidden="true"></span><span id="label">Idle. Click Start to begin.</span></div>
+
+      <div id="stage" class="grid" aria-label="Switching keys stage">
+        <div class="banner" id="banner">Find the correct key when the switching stops.</div>
+        <div class="flash" id="flash"></div>
+        <!-- keys injected by JS -->
+      </div>
+
+      <div id="err" class="errbar" role="alert"></div>
+
+      <div class="footer">Controls: Click a key to choose. Press <span class="kbd">R</span> to reset. Audio starts exactly when the keys begin moving (set a cue time for the last part of “Isolation” by Nighthawk22). During the reveal, clicks are ignored.</div>
+
+      <details class="tests">
+        <summary>Run built‑in tests</summary>
+        <button id="run-tests" class="btn btn-ghost" type="button">Run tests</button>
+        <ul id="test-log"></ul>
+      </details>
+    </div>
+  </div>
+
+  <template id="key-svg">
+    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="g" x1="0" x2="1">
+          <stop offset="0" stop-color="#8b5cf6"/>
+          <stop offset="1" stop-color="#22d3ee"/>
+        </linearGradient>
+      </defs>
+      <g fill="url(#g)">
+        <circle cx="26" cy="26" r="16" fill="none" stroke="url(#g)" stroke-width="6"/>
+        <path d="M36 34 l16 0 0 6 -6 0 0 6 -6 0 0 6 -6 0 0 -10 -6 0 0 -8z"/>
+      </g>
+    </svg>
+  </template>
+
+  <script>
+  (function(){
+    // Boot only after DOM is fully ready to avoid null refs (e.g., #live)
+    function boot(){
+      const $ = (id)=>document.getElementById(id);
+      const stage = $('stage');
+      const banner = $('banner');
+      const flash = $('flash');
+      const dot = $('live');
+      const label = $('label');
+      const startBtn = $('start');
+      const stopBtn = $('stop');
+      const speedInput = $('speed');
+      const durationInput = $('duration');
+      const revealInput = $('reveal');
+      const fileInput = $('file');
+      const cueInput = $('cue');
+      const song = $('song');
+      const errbar = $('err');
+
+      if(!stage||!banner||!flash||!dot||!label||!startBtn||!stopBtn||!speedInput||!durationInput||!revealInput||!fileInput||!cueInput||!song){
+        return showError('Initialization failed: one or more required DOM nodes are missing.');
+      }
+
+      const N = 8;
+      let keys = [];
+      let positions = [];
+      let shuffleTimer = null;
+      let moving = false;
+      let revealing = false;
+      let winnerId = -1;
+      let stopTimeout = null;
+      let revealTimeout = null;
+      let pendingCue = null;
+      let currentOrder = Array.from({length:N}, (_,i)=>i); // track mapping id->slot
+
+      function showError(msg){
+        if(!errbar) return;
+        errbar.textContent = msg;
+        errbar.classList.add('show');
+      }
+      window.addEventListener('error', (e)=>{
+        showError('Error: '+ e.message);
+      });
+
+      function randInt(n){ return Math.floor(Math.random()*n); }
+
+      function layoutPositions(){
+        const w = stage.clientWidth, h = stage.clientHeight;
+        const cx = w/2, cy = h/2;
+        const r = Math.min(w,h)/2 - 80;
+        positions = Array.from({length:N}, (_,i)=>{
+          const angle = (i/N)*Math.PI*2 - Math.PI/2;
+          const x = cx + r*Math.cos(angle) - 40;
+          const y = cy + r*Math.sin(angle) - 40;
+          return {left:x, top:y};
+        });
+      }
+
+      function createKeys(){
+        stage.querySelectorAll('.key').forEach(k=>k.remove());
+        keys = [];
+        const tpl = document.getElementById('key-svg');
+        for(let i=0;i<N;i++){
+          const el = document.createElement('button');
+          el.className = 'key';
+          el.type = 'button';
+          el.dataset.id = String(i);
+          el.setAttribute('aria-label', 'Key '+(i+1));
+          el.innerHTML = tpl.innerHTML + `<span class=\"num\">${i+1}</span>`;
+          el.addEventListener('click', onPick);
+          stage.appendChild(el);
+          keys.push(el);
+        }
+        layoutPositions();
+        applyOrder();
+      }
+
+      function applyOrder(){
+        currentOrder.forEach((id, idx)=>{
+          const el = keys[id];
+          if(el){
+            el.style.left = positions[idx].left+'px';
+            el.style.top = positions[idx].top+'px';
+          }
+        });
+      }
+
+      function permute(array){
+        for(let i=array.length-1;i>0;i--){
+          const j = Math.floor(Math.random()*(i+1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+
+      function start(){
+        if(moving || revealing) return; // ignore double‑start
+        clearTimers();
+        winnerId = randInt(N);
+        revealing = true; moving = false;
+        keys.forEach(k=>k.classList.remove('correct','wrong','reveal'));
+        const key = keys[winnerId];
+        if(key){ key.classList.add('reveal'); }
+        banner.textContent = 'Watch this key! (get ready…)';
+        dot.classList.remove('live'); dot.classList.add('idle');
+        label.textContent = 'READY';
+
+        const revealMs = Math.max(0, parseInt(revealInput.value||1200,10));
+        revealTimeout = setTimeout(()=>{
+          // end reveal and begin shuffling + music
+          if(key){ key.classList.remove('reveal'); }
+          startShuffle();
+        }, revealMs);
+      }
+
+      function startShuffle(){
+        revealing = false; moving = true;
+        banner.textContent = 'Switching… keep your eyes on the right key!';
+        dot.classList.add('live'); dot.classList.remove('idle');
+        label.textContent = 'LIVE';
+
+        // audio starts exactly when movement begins
+        try{
+          const cue = parseFloat(cueInput.value||'0');
+          if(!isNaN(cue)){
+            if(song.readyState >= 1){ song.currentTime = cue; }
+            else { pendingCue = cue; }
+          }
+          song.play().catch(()=>{/* ignore if user did not select audio */});
+        }catch(e){ /* no-op */ }
+
+        const speed = Math.max(120, parseInt(speedInput.value||500,10));
+        shuffleTimer = setInterval(()=>{
+          currentOrder = permute(currentOrder.slice());
+          applyOrder();
+        }, speed);
+
+        const durMs = Math.max(1000, parseInt(durationInput.value||8,10)*1000);
+        stopTimeout = setTimeout(stop, durMs);
+      }
+
+      function stop(){
+        if(revealing){
+          // cancel reveal phase
+          keys.forEach(k=>k.classList.remove('reveal'));
+        }
+        revealing = false;
+        moving = false;
+        if(shuffleTimer){ clearInterval(shuffleTimer); shuffleTimer=null; }
+        if(revealTimeout){ clearTimeout(revealTimeout); revealTimeout=null; }
+        banner.textContent = 'Pick the correct key!';
+        dot.classList.remove('live'); dot.classList.add('idle');
+        label.textContent = 'Choose a key.';
+      }
+
+      function clearTimers(){
+        if(shuffleTimer){ clearInterval(shuffleTimer); shuffleTimer=null; }
+        if(stopTimeout){ clearTimeout(stopTimeout); stopTimeout=null; }
+        if(revealTimeout){ clearTimeout(revealTimeout); revealTimeout=null; }
+      }
+
+      function reset(){
+        clearTimers();
+        try{ song.pause(); }catch(e){}
+        moving = false; revealing = false; winnerId = -1;
+        banner.textContent = 'Find the correct key when the switching stops.';
+        dot.classList.remove('live'); dot.classList.add('idle');
+        label.textContent = 'Idle. Click Start to begin.';
+        keys.forEach(k=>k.classList.remove('correct','wrong','reveal'));
+        currentOrder = Array.from({length:N}, (_,i)=>i);
+        createKeys();
+      }
+
+      function onPick(e){
+        const id = parseInt(e.currentTarget.dataset.id,10);
+        if(winnerId===-1 || moving || revealing){
+          // ignore picks during reveal/switching or before a round has set a winner
+          return;
+        }
+        if(id===winnerId){
+          e.currentTarget.classList.add('correct');
+          banner.textContent = 'Correct! You beat the switch.';
+          banner.classList.add('good');
+          try{ song.pause(); }catch(e){}
+        } else {
+          e.currentTarget.classList.add('wrong');
+          flash.classList.add('show');
+          setTimeout(()=>{ e.currentTarget.classList.remove('wrong'); flash.classList.remove('show'); }, 260);
+        }
+      }
+
+      // audio helpers
+      song.addEventListener('loadedmetadata', ()=>{
+        if(pendingCue!=null){ try{ song.currentTime = pendingCue; }catch(e){} pendingCue=null; }
+      });
+
+      // file loader for audio
+      fileInput.addEventListener('change', (ev)=>{
+        const f = ev.target.files && ev.target.files[0];
+        if(!f) return;
+        const url = URL.createObjectURL(f);
+        song.src = url;
+      });
+
+      startBtn.addEventListener('click', start);
+      stopBtn.addEventListener('click', stop);
+
+      window.addEventListener('resize', ()=>{
+        layoutPositions();
+        applyOrder();
+      });
+
+      window.addEventListener('keydown', (e)=>{
+        if(e.key.toLowerCase()==='r'){ reset(); }
+        if(e.key===' '){ e.preventDefault(); (moving||revealing)?stop():start(); }
+      });
+
+      // expose tiny API for tests/debug
+      window.__switchDemo = {
+        start, stop, reset, get state(){ return {moving, revealing, winnerId, order: currentOrder.slice()}; }
+      };
+
+      // init
+      createKeys();
+
+      // --- Minimal Test Runner ---
+      const runBtn = document.getElementById('run-tests');
+      const log = document.getElementById('test-log');
+      function logLine(ok, msg){
+        const li = document.createElement('li');
+        li.textContent = (ok?'PASS: ':'FAIL: ')+msg;
+        li.className = ok? 'test-pass' : 'test-fail';
+        log.appendChild(li);
+      }
+      function assert(cond, msg){ if(!cond) throw new Error(msg||'assert failed'); }
+      async function runTests(){
+        log.innerHTML='';
+        try{
+          assert(stage && banner && flash && dot && label, '#stage/#banner/#flash/#live/#label present');
+          logLine(true,'DOM nodes exist');
+        }catch(e){ logLine(false, e.message); }
+        try{
+          reset();
+          const count = stage.querySelectorAll('.key').length;
+          assert(count===8, 'expected 8 keys, got '+count);
+          logLine(true,'Created 8 keys');
+        }catch(e){ logLine(false, e.message); }
+        // New tests for reveal ➜ shuffle
+        try{
+          revealInput.value = '100';
+          __switchDemo.start();
+          await new Promise(r=>setTimeout(r, 10));
+          const revealingNow = stage.querySelectorAll('.key.reveal').length === 1 && !__switchDemo.state.moving;
+          assert(revealingNow, 'one key should be highlighted during reveal and not moving');
+          await new Promise(r=>setTimeout(r, 150));
+          const after = __switchDemo.state;
+          assert(after.moving===true && stage.querySelectorAll('.key.reveal').length===0, 'after reveal, moving=true and reveal cleared');
+          __switchDemo.stop();
+          logLine(true,'Reveal then shuffle flow works');
+        }catch(e){ logLine(false, 'Reveal/Shuffle test failed: '+e.message); }
+        try{
+          __switchDemo.stop();
+          logLine(true,'Stop executes without throwing');
+        }catch(e){ logLine(false, 'Stop threw: '+e.message); }
+      }
+      if(runBtn) runBtn.addEventListener('click', runTests);
+    }
+
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', boot);
+    } else {
+      boot();
+    }
+  })();
+  </script>
+</body>
+</html>
